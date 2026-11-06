@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "墨页 MoTex Zotero 桥接",
+  "version": "0.1.3",
+  "description": "将 Zotero 当前选中的文献交给墨页引用。",
+  "icons": {
+    "32": "moye-32.png",
+    "48": "moye-48.png",
+    "64": "moye-64.png"
+  },
+  "applications": {
+    "zotero": {
+      "id": "moye-latex-bridge@moye.local",
+      "strict_min_version": "9.0",
+      "strict_max_version": "9.0.*",
+      "update_url": "https://127.0.0.1:23119/moye-latex/v1/updates.json"
+    }
+  }
+}

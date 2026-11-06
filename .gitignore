@@ -1,0 +1,9 @@
+node_modules/
+renderer/pdfjs/
+renderer/vendor/
+*.tmp
+*.log
+*.moye
+programdata/
+工程/
+dist/

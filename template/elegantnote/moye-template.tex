@@ -1,0 +1,39 @@
+% Moye entry point using the ElegantNote note-template.tex preset.
+\makeatletter
+\def\input@path{{template/elegantnote/}}
+\makeatother
+\documentclass[cn,hazy,blue,12pt,normal]{elegantnote}
+
+\title{%%MOYE_TITLE%%}
+\author{%%MOYE_AUTHOR%%}
+\date{%%MOYE_DATE%%}
+\graphicspath{{./}{figures/}}
+
+%%MOYE_PREAMBLE%%
+%%MOYE_BIB_SETUP%%
+
+\newcounter{moyechapter}
+\counterwithin{section}{moyechapter}
+\renewcommand{\theHsection}{\arabic{moyechapter}.\arabic{section}}
+\newcommand{\MoyeImplicitChapter}{\setcounter{moyechapter}{1}}
+\newcommand{\MoyeChapter}[1]{%
+  \ifnum\value{moyechapter}>0\relax\clearpage\fi
+  \refstepcounter{moyechapter}%
+  \section*{第\arabic{moyechapter}章\quad #1}%
+}
+
+\begin{document}
+
+\maketitle
+
+\if\relax\detokenize{%%MOYE_ABSTRACT%%}\relax
+\else
+  \begin{abstract}
+  %%MOYE_ABSTRACT%%
+  \end{abstract}
+\fi
+
+%%MOYE_BODY%%
+
+%%MOYE_PRINT_BIB%%
+\end{document}

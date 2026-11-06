@@ -1,0 +1,23 @@
+{
+  "name": "motex",
+  "version": "0.2.5",
+  "private": true,
+  "description": "墨页研究写作工作台",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "prepare:editor": "node packaging/prepare-editor.cjs",
+    "prepare:pdfjs": "node packaging/prepare-pdfjs.cjs",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File packaging/build.ps1"
+  },
+  "devDependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@electron/asar": "4.3.1",
+    "electron": "45.2.3",
+    "esbuild": "0.28.2",
+    "pdfjs-dist": "6.5.438",
+    "rcedit": "5.0.2"
+  }
+}

@@ -1,0 +1,63 @@
+% Moye entry point for the upstream XJTU-thesis class.
+\makeatletter
+\def\input@path{{template/xjtu/}}
+\makeatother
+\documentclass[doctor]{XJTU-thesis}
+% Restore the parameter signature required by current hyperref hooks.
+\newcommand{\MoyeLegacyContentsLine}{\phantomsection\temp}
+\ifx\addcontentsline\MoyeLegacyContentsLine
+  \let\addcontentsline\temp
+\fi
+
+\title{\strut %%MOYE_TITLE%%}{\strut %%MOYE_TITLE_EN%%}
+\degree{博士}{Philosophy}
+\author{\strut %%MOYE_AUTHOR%%}{\strut %%MOYE_AUTHOR%%}
+\advisor{\strut %%MOYE_ADVISOR%%}{}{\strut %%MOYE_ADVISOR%%}{}
+\subject{\strut %%MOYE_DISCIPLINE%%}{\strut %%MOYE_DISCIPLINE%%}
+\school{%%MOYE_SCHOOL%%}{%%MOYE_SCHOOL%%}
+\ExplSyntaxOn
+\regex_extract_once:nnNTF { \A ([0-9]{4}) - (0[1-9]|1[0-2]) (?: - [0-9]{2})? \Z }
+  {%%MOYE_DATE%%} \l_tmpa_seq
+  {
+    \use:e {
+      \exp_not:N \submitdate
+      [\seq_item:Nn \l_tmpa_seq {2}]
+      [\int_eval:n {\seq_item:Nn \l_tmpa_seq {3}}]
+    }
+  }
+  { \submitdate }
+\ExplSyntaxOff
+\graphicspath{{./}{figures/}}
+
+%%MOYE_PREAMBLE%%
+%%MOYE_BIB_SETUP%%
+
+\RequirePackage{etoolbox}
+\IfFileExists{Materials/Icons/XJTU.pdf}{}{%
+  \patchcmd{\thesistitles}
+    {\includegraphics[width=8cm]{Materials/Icons/XJTU.pdf}}
+    {\makebox[8cm]{\heiti\zihao{0}西安交通大学}}%
+    {}{\PackageError{moye-xjtu}{The title-page asset path has changed}{Check the XJTU template version.}}%
+}
+\newcommand{\MoyeImplicitChapter}{\setcounter{chapter}{1}}
+\newcommand{\MoyeChapter}[1]{\chapter{#1}}
+
+\begin{document}
+\hypersetup{pageanchor=false}
+\thesistitles
+\frontmatter
+\hypersetup{pageanchor=true}
+
+\if\relax\detokenize{%%MOYE_ABSTRACT%%}\relax
+\else
+  \chapter*{摘要}
+  %%MOYE_ABSTRACT%%
+\fi
+
+\tableofchinesecontents
+
+\mainmatter
+%%MOYE_BODY%%
+
+%%MOYE_PRINT_BIB%%
+\end{document}
