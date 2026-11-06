@@ -73,6 +73,10 @@ try {
     [void][IO.Directory]::CreateDirectory($zoteroDir)
     Copy-Item -LiteralPath $ZoteroXpi -Destination (Join-Path $zoteroDir 'Moye-Zotero.xpi')
 
+    $texLiveDir = Join-Path $resources 'texlive'
+    [void][IO.Directory]::CreateDirectory($texLiveDir)
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Get-TeXLiveIso.ps1') -Destination $texLiveDir
+
     $rcedit = Join-Path $source 'node_modules\rcedit\bin\rcedit-x64.exe'
     & $rcedit (Join-Path $payload 'Moye.exe') --set-icon $icon `
         --set-file-version $manifest.version --set-product-version $manifest.version `

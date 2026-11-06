@@ -4,7 +4,7 @@
 
 ## 安装
 
-从 [Releases](https://github.com/ccl4-56-23-5/MoTex/releases) 下载 Windows x64 ZIP，解压后运行安装程序。TeX Live 镜像下载脚本随 ZIP 提供，也可以继续使用本机已有的 TeX Live。启动后在「偏好设置」选择含 xelatex.exe 和 biber.exe 的 bin 目录。
+在 [GitHub Releases](https://github.com/ccl4-56-23-5/MoTex/releases) 下载并运行 `MoTex-<版本>-Setup-x64.exe`。启动后在「偏好设置」选择含 `xelatex.exe` 和 `biber.exe` 的目录，通常为 TeX Live 安装目录下的 `bin\windows`。
 
 在 D:\program 已存在的系统上，首次安装默认使用 D:\program\墨页。升级沿用实际安装目录。
 
@@ -20,11 +20,22 @@
 
 编辑内容自动保存。成功编译后更新 LaTeX 源码和 PDF。编译失败时保留上次成功的 PDF。
 
+如需安装 Zotero 桥接插件，在 Zotero 的「工具 → 插件」中选择「从文件安装插件」，打开墨页安装目录下的 `resources\zotero\Moye-Zotero.xpi`。
+
+如需下载 TeX Live 官方离线镜像，在墨页安装目录打开 PowerShell 并运行以下命令。镜像默认保存到用户目录下的 `Downloads\TeXLive`，支持断点续传和 SHA-512 校验。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\resources\texlive\Get-TeXLiveIso.ps1
+```
+
+下载完成后在资源管理器中装载 ISO，运行虚拟光驱中的 `install-tl-windows.bat`。也可使用 TUG 提供的在线安装程序。[TeX Live 离线镜像](https://tug.org/texlive/acquire-iso.html) · [TeX Live 在线安装](https://tug.org/texlive/acquire-netinstall.html)
+
 ## 写作
 
 - 右键插入章节。章内用 # 写一级小节，自动编号为 1.1、2.1 等。
-- 输入一个 $ 会自动补齐闭合符号。按 Alt+= 也可插入公式，再按回车转为独立公式。
-- 左侧行号对应编译日志中的正文行号。编辑区的插图以题注卡片显示。
+- 在正文按 Shift+4、Alt+= 或输入一个 $ 会自动补齐闭合符号。光标在一对 $ 中间时按回车，即可展开为独立公式。空公式块的光标留在中间供输入。
+- 左侧行号对应编译日志中的正文行号。单击正文中的图片题注可原地修改，按回车或点到别处保存，按 Esc 取消。
+- 在「偏好设置」可分别选择显示字体、正文中文字体、英文字体和数字符号字体。PDF 字体由所用模板控制。
 - 工作区的「附件」按章节显示图片缩略图。删除时移除工程内的图片数据、正文引用和相应的生成文件。
 - 右键引用或按 Ctrl+Shift+C，按 Zotero 个人或群组文库的集合层级浏览。可在当前分类搜索。引用快照随工程保存。
 - 西交模板的封面信息可在模板菜单填写。两套模板的来源、许可和适配说明见 template。
@@ -38,6 +49,6 @@
     pnpm prepare:editor
     pnpm start
 
-从 zotero-plugin 目录构建 XPI，构建安装程序和发行 ZIP 的入口见 [packaging](packaging/README.md)。测试包括公式与编译、Zotero 集合分页和编辑器交互。
+Zotero 插件和 EXE 安装器的构建入口见 [packaging](packaging/README.md)。测试包括公式与编译、Zotero 集合分页和编辑器交互。
 
 程序源码和资源随仓库提供。各第三方组件遵循随附的许可文件。

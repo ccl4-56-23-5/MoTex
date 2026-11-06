@@ -1,6 +1,6 @@
 export const chapterPattern = /^:::chapter[ \t]+(\S.*)$/;
 export const headingPattern = /^(#{1,6})\s+(.*)$/;
-export const imagePattern = /^!\[([^\]]*)\]\(asset:([A-Za-z0-9_-]+)\)$/;
+export const imagePattern = /^[ \t]*!\[([^\r\n]*)\]\(asset:([A-Za-z0-9_-]+)\)[ \t]*$/;
 
 export function readDisplayMath(lines, start, skipPlaceholder = false) {
   const chunks = [];

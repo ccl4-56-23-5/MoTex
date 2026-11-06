@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('moye', {
   zoteroGroups: () => invoke('zotero:groups'),
   zoteroSelection: () => invoke('zotero:selection'),
   citeZotero: (item, refs) => invoke('zotero:export', item, refs),
+  setEditorFocus: focused => ipcRenderer.send('editor:focus', focused),
+  onFormulaKey: listener => { ipcRenderer.on('editor:formula-key', () => listener()); },
   onFlush: listener => { ipcRenderer.on('close:flush', () => listener()); },
   close: approved => invoke('close:respond', approved)
 });

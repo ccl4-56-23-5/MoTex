@@ -45,7 +45,7 @@
       <div class="menu-anchor"><button data-pop="help-menu" aria-expanded="false">帮助</button><div class="popover" id="help-menu"><button data-action="guide">书写语法与快捷键</button><button data-action="about">关于墨页</button></div></div>
     </nav>
     <div class="spacer"></div><span class="project-title"><svg><use href="#i-folder"/></svg><span id="project-file">未保存工程</span></span>
-    <div class="header-end"><span class="version">0.2.5</span><button class="icon" data-action="guide" aria-label="书写帮助" title="书写帮助"><svg><use href="#i-help"/></svg></button><button class="avatar" data-action="settings" aria-label="偏好设置" title="偏好设置"><svg><use href="#i-settings"/></svg></button></div>
+    <div class="header-end"><span class="version"></span><button class="icon" data-action="guide" aria-label="书写帮助" title="书写帮助"><svg><use href="#i-help"/></svg></button><button class="avatar" data-action="settings" aria-label="偏好设置" title="偏好设置"><svg><use href="#i-settings"/></svg></button></div>
   </header>
   <div class="workspace">
     <aside class="sidebar" id="sidebar">
@@ -150,7 +150,7 @@
     <header class="modal-header"><h2 id="guide-title">书写语法与快捷键</h2><span class="spacer"></span><button class="icon" data-close aria-label="关闭语法速查"><svg><use href="#i-close"/></svg></button></header>
     <div class="guide-body">
       <section class="guide-section"><h3>章节与小节</h3><p>右键选「插入章节」。每个新章从下一页开始。在章内用 <code>#</code> 写一级小节，如 <code>2.1</code>，用 <code>##</code> 写二级小节，如 <code>2.1.1</code>。</p><p><kbd>Ctrl Alt 1–6</kbd> 设置小节层级，<kbd>Ctrl Alt 0</kbd> 恢复正文。</p></section>
-      <section class="guide-section"><h3>公式</h3><p><code>$E=mc^2$</code> 为行内公式。输入一个 <code>$</code> 会自动配对。<kbd>Alt =</kbd> 也可插入一对 <code>$</code>，在中间输入后按回车转成 <code>$$…$$</code> 独立公式。</p></section>
+      <section class="guide-section"><h3>公式</h3><p><code>$E=mc^2$</code> 为行内公式。在正文按 <kbd>Shift 4</kbd>、<kbd>Alt =</kbd> 或输入一个 <code>$</code> 会自动配对。光标在一对 <code>$</code> 中间时按回车，即可展开为上下各一行 <code>$$</code> 的独立公式。</p></section>
       <section class="guide-section"><h3>图片与引用</h3><p>把光标放到需要的位置，右键添加图片或引用。<kbd>Ctrl Shift C</kbd> 打开 Zotero 文献库。</p></section>
     </div>
   </section>
@@ -188,12 +188,38 @@
     </div>
   </section>
 </div>
-<div class="overlay" id="settings-overlay"><section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title"><header class="modal-header"><h2 id="settings-title">写作偏好</h2><span class="spacer"></span><button class="icon" data-close aria-label="关闭偏好设置"><svg><use href="#i-close"/></svg></button></header><div class="guide-body"><div class="settings-row"><label for="font-size">编辑字号</label><select id="font-size"><option value="14">默认 · 14 px</option><option value="16">舒适 · 16 px</option><option value="18">大字 · 18 px</option></select></div><div class="settings-row"><label for="numbering">多级标题编号</label><select id="numbering"><option value="auto">自动编号</option><option value="none">仅标题，不编号</option></select></div><div class="guide-section">
-  <h3>本地 TeX Live</h3>
-  <p>填写包含 xelatex.exe 与 biber.exe 的 bin 目录。留空会自动检测。</p>
-  <div class="tex-field"><input id="tex-bin" aria-label="TeX Live bin 目录" spellcheck="false"><button data-action="choose-tex">浏览…</button></div>
-  <p id="tex-message" role="status"></p>
-</div><div class="guide-actions"><button class="primary" data-action="apply-settings">保存并检测</button></div></div></section></div>
+<div class="overlay" id="settings-overlay">
+  <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <header class="modal-header"><h2 id="settings-title">写作偏好</h2><span class="spacer"></span><button class="icon" data-close aria-label="关闭偏好设置"><svg><use href="#i-close"/></svg></button></header>
+    <div class="guide-body">
+      <div class="guide-section">
+        <h3>界面与编辑区字体</h3>
+        <p id="font-help">可选择或填写本机字体名称，留空使用默认字体。</p>
+        <div class="font-fields" aria-describedby="font-help">
+          <label class="form-field">显示字体<input data-font="display" list="installed-fonts" maxlength="150" placeholder="默认" spellcheck="false"></label>
+          <label class="form-field">正文中文字体<input data-font="chinese" list="installed-fonts" maxlength="150" placeholder="默认" spellcheck="false"></label>
+          <label class="form-field">英文字体<input data-font="english" list="installed-fonts" maxlength="150" placeholder="默认" spellcheck="false"></label>
+          <label class="form-field">数字符号字体<input data-font="symbols" list="installed-fonts" maxlength="150" placeholder="默认" spellcheck="false"></label>
+        </div>
+        <datalist id="installed-fonts">
+          <option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option>
+          <option value="SimHei">黑体</option><option value="KaiTi">楷体</option>
+          <option value="Segoe UI"></option><option value="Times New Roman"></option>
+          <option value="Consolas"></option><option value="Cambria Math"></option>
+        </datalist>
+      </div>
+      <div class="settings-row"><label for="font-size">编辑字号</label><select id="font-size"><option value="14">默认 · 14 px</option><option value="16">舒适 · 16 px</option><option value="18">大字 · 18 px</option></select></div>
+      <div class="settings-row"><label for="numbering">多级标题编号</label><select id="numbering"><option value="auto">自动编号</option><option value="none">仅标题，不编号</option></select></div>
+      <div class="guide-section">
+        <h3>本地 TeX Live</h3>
+        <p>填写包含 xelatex.exe 与 biber.exe 的 bin 目录。留空会自动检测。</p>
+        <div class="tex-field"><input id="tex-bin" aria-label="TeX Live bin 目录" spellcheck="false"><button data-action="choose-tex">浏览…</button></div>
+        <p id="tex-message" role="status"></p>
+      </div>
+      <div class="guide-actions"><button class="primary" data-action="apply-settings">保存并检测</button></div>
+    </div>
+  </section>
+</div>
 <div class="overlay" id="info-overlay"><section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="info-title"><header class="modal-header"><h2 id="info-title"></h2><span class="spacer"></span><button class="icon" data-close aria-label="关闭说明"><svg><use href="#i-close"/></svg></button></header><div class="guide-body"><div class="guide-section"><pre id="info-text"></pre></div><div class="guide-actions"><button class="primary" data-close>知道了</button></div></div></section></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script type="module" src="behavior.js"></script>

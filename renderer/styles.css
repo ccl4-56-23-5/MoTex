@@ -217,6 +217,8 @@ button.primary:hover { background: #215e84; }
 }
 .metadata-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .metadata-fields .form-field:first-child { grid-column: 1 / -1; }
+.font-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.font-fields input { width: 100%; }
 @media (max-width: 1230px) { .sidebar { width: 212px; } }
 @media (max-width: 1020px) { .sidebar { width: 192px; } }
 .form-field textarea { width: 100%; padding: 7px 9px; border: 1px solid #cde0ec; border-radius: 5px; color: #23455b; background: #f8fcff; resize: vertical; }
@@ -226,6 +228,8 @@ button.primary:hover { background: #215e84; }
 
 /* MoTex shell. Controls scale with available window width. */
 :root {
+  --default-font-family: "MiSans", "Segoe UI", "Microsoft YaHei", sans-serif;
+  --sans: var(--default-font-family);
   --control-size: clamp(27px, 2.55vw, 38px);
   --control-icon: clamp(13px, 1.27vw, 18px);
   --workbar-height: calc(var(--control-size) + 12px);
@@ -273,6 +277,7 @@ button.primary:hover { background: #215e84; }
 .workbar button.primary:hover, button.primary:hover { background: #11575d; }
 .workbar .layout-control > button { white-space: nowrap; }
 .editor-body { padding: clamp(16px, 2vw, 32px) clamp(16px, 2.4vw, 38px) 0; }
+.editor-body .title-input { font-family: var(--body-fonts, var(--default-font-family)); }
 .panel-head { height: calc(var(--control-size) + 7px); background: #f8fbfb; border-color: var(--shell-line); }
 .preview-pane .panel-head { background: #f1f7f7; }
 .preview-scroll { background-color: #e8f0f1; }

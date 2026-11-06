@@ -1,6 +1,7 @@
 import * as pdf from './pdf-preview.mjs';
 import { readImage } from './image-validation.mjs';
 import { createEditor } from './editor.mjs';
+import { createFontPreferences } from './fonts.mjs';
 import { renderAttachments, withoutAttachment } from './attachments.mjs';
 import { mountZoteroCollections } from './zotero-collections.mjs';
 import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders, readDisplayMath } from './formula-structure.mjs';
@@ -10,6 +11,7 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
   const $ = (s, root=document) => root.querySelector(s);
   const $$ = (s, root=document) => [...root.querySelectorAll(s)];
   const editor=createEditor($('#editor'));
+  const fontSettings = createFontPreferences($$('[data-font]'), $('#installed-fonts'));
   const templateNames = { note: 'ElegantNote 笔记', thesis: '西交学位论文 · 博士' };
   const api = window.moye;
   const collectionPicker = mountZoteroCollections({
@@ -23,6 +25,7 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
   const assets = new Map();
   let template = 'note', documentId = null, documents = [], metadata = {}, chapters = [];
   let texReady = false, started = false, switching = false, formulaPair = null, imageRequest = null;
+  let texEnvironment;
   const maxProjectResources = 85 * 1024 * 1024;
   const maxImages = 120;
   let structureCache;
@@ -31,6 +34,7 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
   let library = null, searchTimer;
   let savedRange={start:0,end:0},lastFocus=null,toastTimer,renderTimer,usedRefs=[],zoom=100;
   let history=[{text:'',start:0,end:0}],historyIndex=0,composing=false;
+  let formulaAfterComposition = false;
   const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(text){const node=$('#toast');node.textContent=text;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),2800);}
   function captureRange(){if(document.activeElement===editor.element)savedRange={start:editor.selectionStart,end:editor.selectionEnd};return savedRange;}
@@ -361,21 +365,33 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
     return true;
   }
 
+  function inputFormulaDollar() {
+    if (document.activeElement !== editor.element || switching) return;
+    if (composing) {
+      formulaAfterComposition = true;
+      return;
+    }
+    if (!typeDollar()) insertText('$');
+  }
+
   function finishFormula() {
     const pair = liveFormulaPair();
     if (!pair || editor.selectionStart <= pair.start || editor.selectionEnd >= pair.end) return false;
     const { start, end, before, after, contents } = pair;
     const formula = contents.trim();
-    formulaPair = null;
-    if (formula) {
-      const prefix = before && !before.endsWith('\n') ? '\n\n' : '';
-      const suffix = after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
-      editor.setRangeText(prefix + '$$\n' + formula + '\n$$' + suffix, start, end, 'end');
-      const caret = editor.selectionEnd + (after.startsWith('\n\n') ? 2 : after.startsWith('\n') ? 1 : 0);
-      editor.setSelectionRange(caret, caret);
-    } else {
-      editor.setRangeText(contents + '\n', start, end, 'end');
+    const prefix = before && !before.endsWith('\n') ? '\n\n' : '';
+    const suffix = after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+    const block = prefix + '$$\n' + formula + '\n$$' + suffix;
+    if (editor.value.length - (end - start) + block.length > editor.maxLength) {
+      toast('正文长度达到上限，无法插入公式');
+      return true;
     }
+    formulaPair = null;
+    editor.setRangeText(block, start, end, 'end');
+    const caret = formula
+      ? editor.selectionEnd + (after.startsWith('\n\n') ? 2 : after.startsWith('\n') ? 1 : 0)
+      : start + prefix.length + '$$\n'.length;
+    editor.setSelectionRange(caret, caret);
     captureRange();
     historyPush();
     render();
@@ -534,6 +550,8 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
 
   function updateTex(result) {
     const tex = result.tex;
+    const environmentChanged = tex.compiler !== texEnvironment?.compiler || tex.biber !== texEnvironment?.biber;
+    texEnvironment = tex;
     texReady = Boolean(tex.ready);
     $('#tex-bin').value = result.texBin;
     $('#tex-bin').placeholder = tex.bin || 'D:\\texlive\\2026\\bin\\windows';
@@ -541,14 +559,23 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
     $('#tex-message').textContent = texReady ? (tex.biber ? '已检测到 XeLaTeX 与 Biber · ' : '已检测到 XeLaTeX，引用编译需要 Biber · ') + tex.bin :
       (tex.message || '未找到可用的 TeX Live bin 目录');
     if (!texReady) $('#compile-state').textContent = '请在偏好设置中配置 TeX Live';
+    return environmentChanged;
+  }
+
+  function updateFonts(result) {
+    $('#font-size').value = result.fontSize;
+    editor.style.fontSize = result.fontSize + 'px';
+    const ready = fontSettings.apply(result.fonts);
+    editor.requestMeasure();
+    void ready.then(() => editor.requestMeasure());
   }
 
   async function initialize() {
     try {
       const result = await api.load();
+      $('.version').textContent = result.version;
       updateTex(result);
-      $('#font-size').value = result.fontSize;
-      editor.style.fontSize = result.fontSize + 'px';
+      updateFonts(result);
       loadProject(result.draft || {
         format: 1, title: '', text: '', template: 'note', numbering: 'auto', images: [], references: []
       }, result.id, result.projects);
@@ -784,6 +811,7 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
 
   async function switchDocument(operation, preserveDraft = true) {
     if (switching) return;
+    editor.commitCaption();
     switching = true;
     editor.readOnly = $('#doc-title').readOnly = true;
     try {
@@ -821,9 +849,12 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
         case 'library': await openLibrary(); break;
         case 'library-more': await loadLibrary(true); break;
         case 'guide': overlay('guide-overlay'); break;
-        case 'settings': overlay('settings-overlay'); break;
+        case 'settings':
+          overlay('settings-overlay');
+          fontSettings.open();
+          break;
         case 'about':
-          info('墨页 MoTex 0.2.5', '使用本机 TeX Live 编译。工程目录包含文档、LaTeX 源码和 PDF。');
+          info('墨页 MoTex ' + $('.version').textContent, '使用本机 TeX Live 编译。工程目录包含文档、LaTeX 源码和 PDF。');
           break;
         case 'choose-tex': {
           const dir = await api.chooseTex();
@@ -831,12 +862,25 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
           break;
         }
         case 'apply-settings': {
-          updateTex(await api.saveSettings({ texBin: $('#tex-bin').value, fontSize: $('#font-size').value }));
-          await persist();
-          if (texReady) {
-            closeOverlay();
-            currentRevision++;
-            scheduleCompile(120);
+          const button = $('[data-action="apply-settings"]');
+          if (button.disabled) break;
+          button.disabled = true;
+          try {
+            const result = await api.saveSettings({
+              texBin: $('#tex-bin').value,
+              fontSize: $('#font-size').value,
+              fonts: fontSettings.values()
+            });
+            const environmentChanged = updateTex(result);
+            updateFonts(result);
+            await persist();
+            if (texReady && $('#settings-overlay').classList.contains('open')) closeOverlay();
+            if (texReady && environmentChanged) {
+              currentRevision++;
+              scheduleCompile(120);
+            }
+          } finally {
+            button.disabled = false;
           }
           break;
         }
@@ -950,6 +994,7 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
   }
 
   api.onFlush(async () => {
+    editor.commitCaption();
     await api.close(await persist() || confirm('草稿保存失败。确定关闭墨页吗？'));
   });
   document.addEventListener('mousedown',e=>{if(!editor.element.contains(e.target)&&document.activeElement===editor.element)captureRange();});
@@ -974,9 +1019,31 @@ import { chapterPattern, headingPattern, imagePattern, legacyDisplayPlaceholders
   $('#context-heading-trigger').addEventListener('click',()=>{const sub=$('#context-headings');const opened=sub.classList.toggle('open');$('#context-heading-trigger').setAttribute('aria-expanded',opened);if(opened&&innerWidth>560){const rect=$('#context-menu').getBoundingClientRect();const left=rect.right+251<innerWidth;sub.style.left=left?'calc(100% + 5px)':'auto';sub.style.right=left?'auto':'calc(100% + 5px)';}});
   editor.addEventListener('mousedown',e=>{if(e.button===2){e.preventDefault();captureRange();}});
   editor.addEventListener('contextmenu',e=>{e.preventDefault();showContext(e.clientX,e.clientY);$('#context-menu button').focus();});
-  editor.addEventListener('blur', discardEmptyFormula);
+  api.onFormulaKey(inputFormulaDollar);
+  editor.addEventListener('focus', () => api.setEditorFocus(true));
+  editor.addEventListener('blur', () => {
+    api.setEditorFocus(false);
+    formulaAfterComposition = false;
+    discardEmptyFormula();
+  });
   editor.addEventListener('compositionstart',()=>composing=true);
-  editor.addEventListener('compositionend',()=>{composing=false;captureRange();historyPush();render();changed();});
+  editor.addEventListener('compositionend', () => {
+    composing = false;
+    captureRange();
+    historyPush();
+    render();
+    changed();
+    if (formulaAfterComposition) {
+      formulaAfterComposition = false;
+      inputFormulaDollar();
+    }
+  });
+  editor.addEventListener('keydown', event => {
+    if (event.target !== editor.element || event.code !== 'Digit4' || !event.shiftKey ||
+        event.ctrlKey || event.altKey || event.metaKey || composing || switching) return;
+    event.preventDefault();
+    if (!event.repeat) inputFormulaDollar();
+  });
   editor.addEventListener('beforeinput', event => {
     if (event.cancelable && event.inputType === 'insertText' && event.data === '$' &&
         !composing && !event.isComposing && !switching && typeDollar()) event.preventDefault();

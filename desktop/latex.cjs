@@ -231,8 +231,10 @@ function convertDocument(text, directory, references, images) {
       const lineNumber = index + 1;
       const { end, formula, trailing } = readDisplayMath(lines, index, placeholders.has(index + 1));
       index = end;
-      validateTex(formula, '第 ' + lineNumber + ' 行的公式', true);
-      output.push('\\[\n' + formula + '\n\\]');
+      if (formula) {
+        validateTex(formula, '第 ' + lineNumber + ' 行的公式', true);
+        output.push('\\[\n' + formula + '\n\\]');
+      }
       if (trailing) paragraphs.push(inline(trailing, index + 1));
     } else if (heading) {
       flushParagraph();

@@ -12,6 +12,7 @@ if (Test-Path -LiteralPath $registry) { throw 'Run the installation checks from 
 
 $setup = (Resolve-Path -LiteralPath $SetupExe).Path
 $xpiHash = (Get-FileHash -LiteralPath $ZoteroXpi).Hash
+$texHelperHash = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'Get-TeXLiveIso.ps1')).Hash
 $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($setup).ProductVersion.Trim()
 $evidence = [IO.Directory]::CreateDirectory($EvidenceDir).FullName
 $workspace = Find-SoftwareWorkspace (Split-Path -Parent $PSScriptRoot) $version
@@ -46,6 +47,8 @@ function Check-Files([string]$directory) {
     }
     $xpi = Join-Path $directory 'resources\zotero\Moye-Zotero.xpi'
     if ((Get-FileHash -LiteralPath $xpi).Hash -ne $xpiHash) { throw 'Installed Zotero XPI differs from the standalone XPI.' }
+    $texHelper = Join-Path $directory 'resources\texlive\Get-TeXLiveIso.ps1'
+    if ((Get-FileHash -LiteralPath $texHelper).Hash -ne $texHelperHash) { throw 'Installed TeX Live downloader differs from the source.' }
     if (-not (Test-Path -LiteralPath (Join-Path $directory 'resources\app.asar') -PathType Leaf)) { throw 'Missing app.asar.' }
     if ([Diagnostics.FileVersionInfo]::GetVersionInfo($exe).ProductName.Trim() -ne 'MoTex') { throw 'Unexpected Windows product name.' }
     if (Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object Name -in 'xelatex.exe','latexmk.exe','tectonic.exe','pdflatex.exe','biber.exe') {
@@ -97,6 +100,7 @@ try {
         customDirectoryPreserved = $true
         independentFilePreserved = $true
         zoteroXpiSHA256 = $xpiHash
+        texLiveDownloaderSHA256 = $texHelperHash
         bundledTexExecutables = $false
         testUninstalled = $true
     } | ConvertTo-Json | Tee-Object -FilePath (Join-Path $evidence 'installer-verification.json')

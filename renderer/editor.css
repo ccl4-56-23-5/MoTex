@@ -1,11 +1,12 @@
 .moye-editor {
+  --gutter-outset: clamp(10px, 1.2vw, 18px);
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  width: 100%;
+  margin-inline-start: calc(-1 * var(--gutter-outset));
   color: #23455b;
-  font: 14px/1.8 var(--sans);
+  font: 14px/1.8 var(--body-fonts, var(--sans));
 }
 
 .moye-editor > .cm-editor {
@@ -32,21 +33,57 @@
 .moye-editor .cm-line { padding: 0 1px; }
 
 .moye-editor .cm-gutters {
-  padding-right: 10px;
+  padding-inline-end: calc(10px + var(--gutter-outset));
   background: transparent;
   border: 0;
-  color: #6b8497;
-  font-variant-numeric: tabular-nums;
+  color: #81888d;
 }
 
-.moye-editor .cm-lineNumbers .cm-gutterElement { padding: 0 2px 0 0; }
+.moye-editor .cm-lineNumbers .cm-gutterElement {
+  padding-inline: 0 2px;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: .81em;
+  line-height: 1lh;
+  font-variant-numeric: tabular-nums;
+}
 .moye-editor .cm-placeholder { color: #7f94a4; }
 
-.moye-image-caption {
+.moye-caption-widget {
   display: inline-block;
   max-width: 100%;
+}
+
+.moye-image-caption,
+.moye-caption-input {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 3px;
   color: #396986;
+  font: inherit;
   font-weight: 550;
+}
+
+.moye-image-caption {
+  cursor: text;
+  text-align: start;
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+.moye-image-caption:hover {
+  background: #eff6fa;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.moye-caption-input {
+  field-sizing: content;
+  min-width: min(10em, 100%);
+  outline: 1px solid #aac7d5;
+  outline-offset: 0;
+  background: #f3f9fc;
+}
+
+.moye-caption-input:focus-visible { outline-offset: 0; }

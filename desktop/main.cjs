@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, ipcMain, net, protocol, shell } = require('electron');
 const fs = require('node:fs/promises');
 const { mkdirSync } = require('node:fs');
 const path = require('node:path');
@@ -11,6 +11,7 @@ const zotero = require('./zotero.cjs');
 const { readJson, writeAtomic, validProject, readProject, safeName, nestedPath, createWorkspace } = require('./projects.cjs');
 
 const page = 'moye://local/ui.html';
+const formulaKey = 'Shift+4';
 const renderer = path.join(__dirname, '..', 'renderer');
 const installation = path.dirname(process.execPath);
 const templateRoot = app.isPackaged ? path.join(installation, 'template') : path.join(__dirname, '..', 'template');
@@ -41,6 +42,31 @@ let compiling = false;
 let publishing = null;
 let removingAsset = false;
 let previewDir;
+let editorFocused = false;
+let formulaKeyRegistered = false;
+
+function releaseFormulaKey() {
+  if (formulaKeyRegistered) globalShortcut.unregister(formulaKey);
+  formulaKeyRegistered = false;
+}
+
+function syncFormulaKey() {
+  if (process.platform !== 'win32') return;
+  if (!editorFocused || !win?.isFocused() || !win.webContents.isFocused()) {
+    releaseFormulaKey();
+  } else if (!formulaKeyRegistered) {
+    // Windows delivers the registered key before an IME can commit a currency sign.
+    formulaKeyRegistered = globalShortcut.register(formulaKey, () => {
+      if (editorFocused && win?.isFocused() && win.webContents.isFocused()) win.webContents.send('editor:formula-key');
+    });
+  }
+}
+
+ipcMain.on('editor:focus', (event, focused) => {
+  if (event.sender !== win?.webContents || event.senderFrame?.url !== page) return;
+  editorFocused = focused === true;
+  syncFormulaKey();
+});
 
 function userFile(name) {
   return path.join(app.getPath('userData'), name);
@@ -58,6 +84,19 @@ function texStatus(bin = prefs.texBin) {
   return detectTex(bin);
 }
 
+function fontPreferences(input) {
+  const fonts = {};
+  const validName = value => typeof value === 'string' && value.length <= 150 && !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value);
+  for (const key of ['display', 'chinese', 'english', 'symbols']) {
+    const family = input?.[key]?.family;
+    const local = input?.[key]?.local;
+    if (validName(family) && family.trim()) {
+      fonts[key] = { family: family.trim(), local: validName(local) ? local.trim() : '' };
+    }
+  }
+  return fonts;
+}
+
 function handle(channel, fn) {
   ipcMain.handle(channel, async (event, ...args) => {
     if (event.sender !== win?.webContents || event.senderFrame?.url !== page) {
@@ -72,13 +111,15 @@ function handle(channel, fn) {
 }
 
 handle('load', async () => ({
+  version: app.getVersion(),
   draft: draft ?? null,
   id: activeId,
   projects: await workspace.list(),
   projectRoot: workspace.root,
   tex: await texStatus(),
   texBin: prefs.texBin || '',
-  fontSize: prefs.fontSize || '14'
+  fontSize: prefs.fontSize || '14',
+  fonts: fontPreferences(prefs.fonts)
 }));
 
 handle('tex:choose', async () => {
@@ -90,17 +131,17 @@ handle('tex:choose', async () => {
   return filePaths[0] || null;
 });
 
-handle('settings:save', async ({ texBin, fontSize }) => {
+handle('settings:save', async ({ texBin, fontSize, fonts = prefs.fonts }) => {
   if (typeof texBin !== 'string' || texBin.length > 1000 || !['14', '16', '18'].includes(fontSize)) {
     throw new Error('设置格式无效');
   }
   const bin = texBin.trim().replace(/^"(.*)"$/, '$1');
   if (bin && !path.isAbsolute(bin)) throw new Error('请填写 TeX Live bin 的绝对路径');
   const tex = await texStatus(bin);
-  const updated = { texBin: bin, fontSize };
+  const updated = { ...prefs, texBin: bin, fontSize, fonts: fontPreferences(fonts) };
   await writeAtomic(userFile('settings.json'), JSON.stringify(updated, null, 2));
   prefs = updated;
-  return { tex, texBin: bin };
+  return { tex, texBin: bin, fontSize, fonts: updated.fonts };
 });
 
 handle('project:draft', async ({ project: input, id }) => {
@@ -333,9 +374,25 @@ else {
       webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true, contextIsolation: true }
     });
     win.removeMenu();
+    win.on('focus', syncFormulaKey);
+    win.on('blur', releaseFormulaKey);
+    win.webContents.on('focus', syncFormulaKey);
+    win.webContents.on('blur', releaseFormulaKey);
+    win.webContents.on('render-process-gone', () => {
+      editorFocused = false;
+      releaseFormulaKey();
+    });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
-    win.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    const localFontsAllowed = (contents, permission, isMainFrame) => (
+      permission === 'local-fonts' && isMainFrame === true && contents === win?.webContents && contents.getURL() === page
+    );
+    win.webContents.session.setPermissionCheckHandler((contents, permission, origin, details) => (
+      (origin === 'moye://local' || origin === 'moye://local/') && localFontsAllowed(contents, permission, details?.isMainFrame)
+    ));
+    win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => {
+      callback(localFontsAllowed(contents, permission, details?.isMainFrame));
+    });
     win.on('close', (event) => {
       if (closeAllowed || win.webContents.isCrashed() || win.webContents.isLoadingMainFrame()) return;
       event.preventDefault();
@@ -344,7 +401,11 @@ else {
         win.webContents.send('close:flush');
       }
     });
-    win.on('closed', () => { win = undefined; });
+    win.on('closed', () => {
+      editorFocused = false;
+      releaseFormulaKey();
+      win = undefined;
+    });
     win.once('ready-to-show', () => win.show());
     await win.loadURL(page);
   }).catch(error => {
@@ -352,5 +413,6 @@ else {
     app.exit(1);
   });
   app.on('window-all-closed', () => app.quit());
+  app.on('will-quit', releaseFormulaKey);
 }
 

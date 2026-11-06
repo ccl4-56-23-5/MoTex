@@ -2,42 +2,124 @@ import {
   Annotation, Compartment, Decoration, EditorState, EditorView, MatchDecorator,
   ViewPlugin, WidgetType, defaultKeymap, keymap, lineNumbers, placeholder,
 } from './vendor/codemirror.mjs';
+import { imagePattern } from './formula-structure.mjs';
 
 class CaptionWidget extends WidgetType {
-  constructor(caption) {
+  constructor(match, maxLength) {
     super();
-    this.caption = caption || '图片';
+    this.marker = match[0];
+    this.caption = match[1];
+    this.maxLength = maxLength;
   }
 
   eq(other) {
-    return other.caption === this.caption;
+    return other.marker === this.marker;
   }
 
   toDOM(view) {
-    const label = view.dom.ownerDocument.createElement('span');
-    label.className = 'moye-image-caption';
-    label.textContent = this.caption;
-    return label;
+    const document = view.dom.ownerDocument;
+    const widget = document.createElement('span');
+    widget.className = 'moye-caption-widget';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'moye-image-caption';
+    button.textContent = this.caption || '图片';
+    button.title = '编辑图片题注';
+    button.setAttribute('aria-label', '编辑图片题注 ' + button.textContent);
+    button.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) button.click();
+    });
+    button.addEventListener('click', () => {
+      if (view.state.readOnly) return;
+      const input = document.createElement('input');
+      input.className = 'moye-caption-input';
+      input.type = 'text';
+      input.value = this.caption;
+      input.placeholder = '图片题注';
+      input.spellcheck = false;
+      input.setAttribute('aria-label', '图片题注');
+      if (this.maxLength >= 0) {
+        input.maxLength = Math.max(0, this.maxLength - view.state.doc.length + this.caption.length);
+      }
+
+      let editing = true;
+      let composing = false;
+      const finish = (save, focusEditor) => {
+        if (!editing) return;
+        editing = false;
+        if (!widget.isConnected) return;
+        const start = view.posAtDOM(widget);
+        const end = start + this.marker.length;
+        widget.replaceChildren(button);
+        if (view.state.doc.sliceString(start, end) !== this.marker) return;
+        const caption = input.value.replace(/[\u0000-\u001f]/g, ' ');
+        if (save && !view.state.readOnly && caption !== this.caption) {
+          const from = start + this.marker.indexOf('![') + 2;
+          view.dispatch({
+            changes: { from, to: from + this.caption.length, insert: caption },
+            selection: focusEditor ? { anchor: end + caption.length - this.caption.length } : undefined,
+            userEvent: 'input.caption',
+          });
+        }
+        view.requestMeasure();
+        if (focusEditor) {
+          if (save) view.focus();
+          else button.focus({ preventScroll: true });
+        }
+      };
+
+      input.addEventListener('compositionstart', event => {
+        composing = true;
+        event.stopPropagation();
+      });
+      input.addEventListener('compositionend', event => {
+        composing = false;
+        event.stopPropagation();
+      });
+      input.addEventListener('beforeinput', event => event.stopPropagation());
+      input.addEventListener('keydown', event => {
+        if (composing || event.isComposing || event.keyCode === 229) {
+          event.stopPropagation();
+          return;
+        }
+        if (event.key !== 'Enter' && event.key !== 'Escape') return;
+        event.stopPropagation();
+        event.preventDefault();
+        finish(event.key === 'Enter', true);
+      });
+      input.addEventListener('blur', () => finish(true, false));
+      widget.replaceChildren(input);
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(this.caption.length, this.caption.length);
+      view.requestMeasure();
+    });
+    widget.append(button);
+    return widget;
   }
 }
 
-const captions = new MatchDecorator({
-  regexp: /^[ \t]*!\[([^\]]*)\]\(asset:[A-Za-z0-9_-]+\)[ \t]*$/g,
-  decoration: match => Decoration.replace({ widget: new CaptionWidget(match[1]) }),
-});
+function editableCaptions(maxLength) {
+  const captions = new MatchDecorator({
+    regexp: new RegExp(imagePattern.source, 'g'),
+    decoration: match => Decoration.replace({ widget: new CaptionWidget(match, maxLength) }),
+  });
 
-const captionPlugin = ViewPlugin.fromClass(class {
-  constructor(view) {
-    this.decorations = captions.createDeco(view);
-  }
+  return ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.decorations = captions.createDeco(view);
+    }
 
-  update(update) {
-    this.decorations = captions.updateDeco(update, this.decorations);
-  }
-}, {
-  decorations: plugin => plugin.decorations,
-  provide: plugin => EditorView.atomicRanges.of(view => view.plugin(plugin)?.decorations ?? Decoration.none),
-});
+    update(update) {
+      this.decorations = captions.updateDeco(update, this.decorations);
+    }
+  }, {
+    decorations: plugin => plugin.decorations,
+    provide: plugin => EditorView.atomicRanges.of(view => view.plugin(plugin)?.decorations ?? Decoration.none),
+  });
+}
 
 const programmatic = Annotation.define();
 
@@ -65,7 +147,7 @@ export function createEditor(textarea) {
       placeholder(textarea.placeholder),
       readOnly.of(editability(textarea.readOnly)),
       keymap.of(defaultKeymap),
-      captionPlugin,
+      editableCaptions(maxLength),
       EditorState.transactionFilter.of(transaction => {
         if (!transaction.docChanged || maxLength < 0 || transaction.newDoc.length <= maxLength) return transaction;
         return [];
@@ -108,8 +190,13 @@ export function createEditor(textarea) {
       view.contentDOM.addEventListener(event, listener);
     },
     focus(options) { view.contentDOM.focus(options); },
+    commitCaption() {
+      const active = view.dom.ownerDocument.activeElement;
+      if (active?.classList.contains('moye-caption-input') && view.contentDOM.contains(active)) active.blur();
+    },
     getBoundingClientRect() { return view.scrollDOM.getBoundingClientRect(); },
     coordsAtPos(pos) { return view.coordsAtPos(position(pos), 1); },
     scrollIntoView(pos) { dispatch({ effects: EditorView.scrollIntoView(position(pos), { y: 'center' }) }); },
+    requestMeasure() { view.requestMeasure(); },
   };
 }
